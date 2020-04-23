@@ -88,6 +88,7 @@ class ShapeNetDataset(data.Dataset):
         class_choice=None,
         split="train",
         data_augmentation=True,
+        split_name: str = "pointflow",
     ):
         self.npoints = npoints
         self.root = root
@@ -111,7 +112,7 @@ class ShapeNetDataset(data.Dataset):
         splitfile = os.path.join(
             self.root,
             "train_test_split",
-            "shuffled_{}_file_list.json".format(split),
+            "{}_{}_file_list.json".format(split_name, split),
         )
         # from IPython import embed; embed()
         filelist = json.load(open(splitfile, "r"))
