@@ -1,16 +1,16 @@
 from __future__ import print_function
+
 import argparse
 import os
 import random
-import torch
-import torch.nn.parallel
+
+import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data
-from pointnet.dataset import ShapeNetDataset, ModelNetDataset
-from pointnet.model import PointNetCls, feature_transform_regularizer
-import torch.nn.functional as F
 from tqdm import tqdm
 
+from pointnet.dataset import ModelNetDataset, ShapeNetDataset
+from pointnet.model import PointNetCls, feature_transform_regularizer
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -37,6 +37,17 @@ parser.add_argument(
 parser.add_argument(
     "--feature_transform", action="store_true", help="use feature transform"
 )
+parser.add_argument(
+    "--split_name",
+    type=str,
+    required=False,
+    choices=["pointflow", "shuffle"],
+    help=(
+        "Type of the split of the dataset [ shuffle | pointflow ]. Default: "
+        "pointflow"
+    ),
+    default="pointflow",
+)
 
 opt = parser.parse_args()
 print(opt)
@@ -50,7 +61,10 @@ torch.manual_seed(opt.manualSeed)
 
 if opt.dataset_type == "shapenet":
     dataset = ShapeNetDataset(
-        root=opt.dataset, classification=True, npoints=opt.num_points
+        root=opt.dataset,
+        classification=True,
+        npoints=opt.num_points,
+        split_name=opt.split_name,
     )
 
     test_dataset = ShapeNetDataset(
@@ -59,6 +73,7 @@ if opt.dataset_type == "shapenet":
         split="test",
         npoints=opt.num_points,
         data_augmentation=False,
+        split_name=opt.split_name,
     )
 elif opt.dataset_type == "modelnet40":
     dataset = ModelNetDataset(
@@ -73,7 +88,6 @@ elif opt.dataset_type == "modelnet40":
     )
 else:
     exit("wrong dataset type")
-
 
 dataloader = torch.utils.data.DataLoader(
     dataset,
@@ -104,7 +118,6 @@ classifier = PointNetCls(
 
 if opt.model != "":
     classifier.load_state_dict(torch.load(opt.model))
-
 
 optimizer = optim.Adam(classifier.parameters(), lr=0.001, betas=(0.9, 0.999))
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
