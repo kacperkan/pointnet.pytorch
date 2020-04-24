@@ -1,11 +1,14 @@
 from __future__ import print_function
+
+from typing import Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.nn.parallel
 import torch.utils.data
 from torch.autograd import Variable
-import numpy as np
-import torch.nn.functional as F
 
 
 class STN3d(nn.Module):
@@ -148,6 +151,20 @@ class PointNetfeat(nn.Module):
         else:
             x = x.view(-1, self.num_out_features, 1).repeat(1, 1, n_pts)
             return torch.cat([x, pointfeat], 1), trans, trans_feat
+
+
+class PointnetFeatureExtractor(nn.Module):
+    def __init__(self, feature_transform: bool, num_out_features: int = 32):
+        super().__init__()
+        self.feature_transform = feature_transform
+        self.feat = PointNetfeat(
+            global_feat=True,
+            feature_transform=feature_transform,
+            num_out_features=num_out_features,
+        )
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, ...]:
+        return self.feat(x)
 
 
 class PointNetCls(nn.Module):

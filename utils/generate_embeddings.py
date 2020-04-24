@@ -7,7 +7,7 @@ import torch
 import tqdm
 from torch.utils.data import DataLoader, Dataset
 
-from pointnet.model import PointNetfeat
+from pointnet.model import PointnetFeatureExtractor
 
 USE_GPU = torch.cuda.is_available()
 
@@ -26,19 +26,23 @@ class EmbeddingDataset(Dataset):
         )  # center
         dist = np.max(np.sqrt(np.sum(point_set ** 2, axis=1)), 0)
         point_set = point_set / dist  # scale
-        return torch.from_numpy(point_set).float()
+        return torch.from_numpy(point_set).float().t()
 
     def __len__(self):
         return len(self.paths)
 
 
-def generate_embeddings(data_path: str, weights: str):
+def generate_embeddings(data_path: str, weights: str, out: str):
+    out = Path(out)
+    out.mkdir(exist_ok=True, parents=True)
     data_paths = [path.as_posix() for path in Path(data_path).rglob("*.npy")]
 
-    model = PointNetfeat(
-        feature_transform=True, global_feat=True, num_out_features=32
+    model = PointnetFeatureExtractor(
+        feature_transform=True, num_out_features=32
     )
-    model.load_state_dict(torch.load(weights))
+
+    # strict to avoid loading weights that classifier specific
+    model.load_state_dict(torch.load(weights), strict=False)
     model.eval()
 
     if USE_GPU:
@@ -49,7 +53,9 @@ def generate_embeddings(data_path: str, weights: str):
         dataset, batch_size=32, shuffle=False, drop_last=False, pin_memory=True
     )
 
-    for batch_idx, batch in tqdm.tqdm(data_loader):  # type: int, torch.Tensor
+    for batch_idx, batch in enumerate(
+        tqdm.tqdm(data_loader)
+    ):  # type: int, torch.Tensor
         if USE_GPU:
             batch = batch.cuda()
 
@@ -62,7 +68,16 @@ def generate_embeddings(data_path: str, weights: str):
         ]
 
         for path, emb in zip(batch_paths, embs):
-            path = Path(path[:-4]).with_suffix("_emb.npy")
+            path = Path(path)
+            split_type = path.parent.name
+            obj_name = path.parent.parent.name
+            path = (
+                out
+                / obj_name
+                / split_type
+                / (path.with_suffix("").name + "_emb.npy")
+            )
+            path.parent.mkdir(parents=True, exist_ok=True)
             np.save(path.as_posix(), emb)
 
 
@@ -79,6 +94,14 @@ def main():
     )
     parser.add_argument(
         "--weights", required=True, help="Path to weights of the model"
+    )
+    parser.add_argument(
+        "--out",
+        required=True,
+        help=(
+            "Output directory for the data, the same structure as for "
+            "ShapeNetCore.v2.PC15k"
+        ),
     )
 
     args = parser.parse_args()
