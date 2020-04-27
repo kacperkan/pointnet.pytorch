@@ -153,7 +153,7 @@ for epoch in range(opt.nepoch):
             )
         )
 
-        if i % 10 == 0:
+        if i % 374 == 0:
             j, data = next(enumerate(testdataloader, 0))
             points, target = data
             target = target[:, 0]
