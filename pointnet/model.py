@@ -122,7 +122,9 @@ class PointNetfeat(nn.Module):
             self.fstn = STNkd(k=64)
 
         self.num_out_features = num_out_features
-        self.feat_mapper_to_lower_manifold = nn.Linear(1024, num_out_features)
+        self.feat_mapper_to_lower_manifold = nn.Sequential(
+            nn.Linear(1024, num_out_features), nn.BatchNorm1d(num_out_features)
+        )
 
     def forward(self, x):
         n_pts = x.size()[2]
